@@ -1,0 +1,34 @@
+#!/usr/bin/env node
+import { auth } from "../lib/auth.mjs";
+import { install, loadHostSettings, run, version } from "../lib/browser.mjs";
+import { loadConfig } from "../lib/config.mjs";
+
+const usage = `devkit: shared development tooling for DevSports projects.
+
+  devkit browser <agent-browser args>   Run the pinned agent-browser ${version}
+  devkit browser install [--with-deps]  Install it (once per machine) and Chrome
+  devkit auth [user] [--save]           Sign the browser session in as a Clerk test user
+  devkit auth --help                    More on auth
+
+Settings come from devkit.config.json at the project root.`;
+
+async function main([command, ...args]) {
+  if (!command || command === "--help" || command === "-h" || command === "help") {
+    console.log(usage);
+    return 0;
+  }
+  if (command === "browser" && args[0] === "install") return install(args.slice(1));
+  const config = loadConfig();
+  loadHostSettings(config);
+  if (command === "browser") return run(config, args[0] === "--" ? args.slice(1) : args);
+  if (command === "auth") return auth(config, args);
+  console.error(`Unknown command: ${command}\n\n${usage}`);
+  return 1;
+}
+
+try {
+  process.exitCode = await main(process.argv.slice(2));
+} catch (error) {
+  console.error(error instanceof Error ? error.message : String(error));
+  process.exitCode = 1;
+}
