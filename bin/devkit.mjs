@@ -3,6 +3,7 @@ import { auth } from "../lib/auth.mjs";
 import { install, loadHostSettings, run, version } from "../lib/browser.mjs";
 import { loadConfig } from "../lib/config.mjs";
 import { secretsCommand } from "../lib/secrets.mjs";
+import { urlsCommand } from "../lib/urls.mjs";
 
 const usage = `devkit: shared development tooling for DevSports projects.
 
@@ -12,6 +13,7 @@ const usage = `devkit: shared development tooling for DevSports projects.
   devkit auth --help                    More on auth
   devkit secrets run <folders> -- <cmd> Run a command with Infisical development settings
   devkit secrets check [--startup]      Check every folder has its required settings
+  devkit urls [--check] [--json] [--all] Print (and check) this checkout's Tailscale URLs
 
 Settings come from devkit.config.json at the project root.`;
 
@@ -27,6 +29,7 @@ async function main([command, ...args]) {
   if (command === "browser") return run(config, args[0] === "--" ? args.slice(1) : args);
   if (command === "auth") return auth(config, args);
   if (command === "secrets") return secretsCommand(config, args);
+  if (command === "urls") return urlsCommand(config, args);
   console.error(`Unknown command: ${command}\n\n${usage}`);
   return 1;
 }

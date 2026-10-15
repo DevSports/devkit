@@ -9,6 +9,9 @@ blk-scl, mission-control), so a fix lands once instead of in every repo.
   fixed test code. No passwords, secret keys or email.
 - **`devkit secrets`**: runs commands with development settings from
   Infisical, and gives project scripts one shared Infisical toolkit.
+- **`devkit urls`** and **`@devsports/devkit/tailscale`**: the checkout's
+  public Tailscale URLs, and the Tailscale Serve helpers behind each project's
+  `setup:tailscale`.
 
 This repository is public. Never commit secrets, hostnames or user data;
 anything project-specific belongs in the project's `devkit.config.json`.
@@ -18,7 +21,7 @@ anything project-specific belongs in the project's `devkit.config.json`.
 Add it to the workspace root, pinned to a release tag:
 
 ```sh
-pnpm add -Dw github:DevSports/devkit#v0.2.0
+pnpm add -Dw github:DevSports/devkit#v0.3.0
 ```
 
 Add the scripts the project's docs and agents use:
@@ -28,7 +31,8 @@ Add the scripts the project's docs and agents use:
 "browser:install": "devkit browser install",
 "auth": "devkit auth",
 "secrets:run": "devkit secrets run",
-"secrets:check": "devkit secrets check"
+"secrets:check": "devkit secrets check",
+"ui:urls": "devkit urls"
 ```
 
 And a `devkit.config.json` at the root:
@@ -205,6 +209,33 @@ Project scripts use the same toolkit instead of their own Infisical wrapper:
 import { secretsFor } from "@devsports/devkit/secrets";
 export const { fetchSecrets, childEnvironment, mergeMissingSecrets } = secretsFor();
 ```
+
+## Tailscale URLs
+
+Each project's `setup:tailscale` exposes its development services with
+Tailscale Serve and writes their HTTPS URLs to a manifest (`.env.tailscale`, or
+`.env.worktree` in a linked worktree). `devkit urls` prints them, `--check`
+requests each one, `--json` prints a list, and `--all` adds optional services:
+
+```json
+"urls": {
+  "services": [
+    { "name": "client", "variable": "CLIENT_PUBLIC_URL" },
+    { "name": "MCP", "variable": "MCP_PUBLIC_URL", "checkPath": "/health", "extra": true }
+  ],
+  "worktreeManifest": ".env.worktree",
+  "worktreeServices": [{ "name": "client", "variable": "WORKTREE_PUBLIC_URL" }],
+  "manifestEnv": "ARC_TAILSCALE_ENV_FILE",
+  "missingHint": "Run `pnpm dev up`."
+}
+```
+
+The setup scripts themselves stay in each project, because which services to
+expose differs, but they share `@devsports/devkit/tailscale`: finding the CLI
+(`TAILSCALE_CLI`, PATH or the macOS app; `TAILSCALE_SOCKET` for a custom
+daemon socket), reading the MagicDNS name and Serve status, choosing free HTTPS
+ports, adding and removing only mappings that still point at this checkout,
+a lock, and writing the manifest atomically with mode 600.
 
 ## Development
 
