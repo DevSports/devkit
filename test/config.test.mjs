@@ -47,6 +47,10 @@ test("parses auth arguments", () => {
   assert.deepEqual(all.users, ["staff", "admin"]);
   assert.equal(parseAuthArgs(["--url", "http://localhost:1"], config).statePath("staff"), undefined);
   assert.throws(() => parseAuthArgs(["--all", "--url", "http://localhost:1"], config), /needs --save/);
+  assert.equal(parseAuthArgs(["admin", "--temp", "--save", "--url", "http://localhost:1"], config).temp, true);
+  assert.equal(all.temp, true);
+  assert.equal(one.temp, false);
+  assert.throws(() => parseAuthArgs(["--temp", "--url", "http://localhost:1"], config), /--temp/);
   assert.throws(() => parseAuthArgs(["nobody", "--url", "http://localhost:1"], config), /Unknown user/);
   assert.throws(() => parseAuthArgs([], config), /No app URL/);
   assert.throws(() => parseAuthArgs(["--url", "https://prod.example.com"], config), /development URL/);

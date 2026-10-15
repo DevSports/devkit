@@ -121,6 +121,7 @@ pnpm auth --url "$APP_URL"                 # the default user
 pnpm auth org-admin --url "$APP_URL"       # switch user in the same session
 pnpm auth --list                           # users and addresses
 pnpm auth --all --save --url "$APP_URL"    # save every user for test suites
+pnpm auth coach --temp --save --url "$APP_URL"  # save one, without touching your session
 pnpm browser --state .agents/auth/org-admin.json open "$APP_URL"
 ```
 
