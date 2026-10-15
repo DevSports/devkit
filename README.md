@@ -7,6 +7,8 @@ blk-scl, mission-control), so a fix lands once instead of in every repo.
   version and SHA-256 digest, running headless Chrome. One copy per machine.
 - **`devkit auth`**: signs a browser session in as a Clerk test user with the
   fixed test code. No passwords, secret keys or email.
+- **`devkit secrets`**: runs commands with development settings from
+  Infisical, and gives project scripts one shared Infisical toolkit.
 
 This repository is public. Never commit secrets, hostnames or user data;
 anything project-specific belongs in the project's `devkit.config.json`.
@@ -16,7 +18,7 @@ anything project-specific belongs in the project's `devkit.config.json`.
 Add it to the workspace root, pinned to a release tag:
 
 ```sh
-pnpm add -Dw github:DevSports/devkit#v0.1.0
+pnpm add -Dw github:DevSports/devkit#v0.2.0
 ```
 
 Add the scripts the project's docs and agents use:
@@ -24,7 +26,9 @@ Add the scripts the project's docs and agents use:
 ```json
 "browser": "devkit browser",
 "browser:install": "devkit browser install",
-"auth": "devkit auth"
+"auth": "devkit auth",
+"secrets:run": "devkit secrets run",
+"secrets:check": "devkit secrets check"
 ```
 
 And a `devkit.config.json` at the root:
@@ -146,6 +150,61 @@ curl -sS https://api.clerk.com/v1/email_addresses \
 
 The instance needs **Email verification code** turned on as a sign-in
 option (Clerk dashboard → User & authentication).
+
+## Secrets
+
+Development settings live in Infisical (the project's `.infisical.json`,
+environment `dev`), one folder per service. List the folders in
+`devkit.config.json`, each with the keys it must have:
+
+```json
+"secrets": {
+  "folders": {
+    "development": ["TYPESENSE_API_KEY"],
+    "convex": ["CLERK_JWT_ISSUER_DOMAIN"],
+    "qa": []
+  },
+  "startup": ["development", "convex"]
+}
+```
+
+```sh
+pnpm secrets:run convex,web -- pnpm dev      # devkit secrets run ...
+pnpm secrets:check                            # every folder; --startup for the startup ones
+```
+
+`run` fetches each folder with `infisical export` (never `.env` files),
+refuses a key that differs between folders, then starts the command with:
+
+- inherited secret-looking variables (`*_SECRET`, `*_TOKEN`, `*_KEY`, …),
+  `INFISICAL_*` and the Convex selection (`CONVEX_DEPLOYMENT`, `CONVEX_URL`, …)
+  removed, so nothing leaks in from your shell or targets the wrong backend;
+- the folders' values, plus `<PREFIX>_SECRETS_SCOPE`,
+  `<PREFIX>_INJECTED_SECRET_NAMES` and `<PREFIX>_SECRETS_RUNNER_PID`.
+
+Every folder is checked: key names must be `UPPER_SNAKE_CASE`, process-control
+names (`PATH`, `NODE_OPTIONS`, `INFISICAL_*`, `<PREFIX>_*` …) are refused, and in
+`dev` Clerk keys must be development keys (`pk_test_`, `sk_test_`).
+
+| Field | Meaning |
+| --- | --- |
+| `folders` | Folder → required keys. Only these folders can be used. |
+| `startup` | Folders `check --startup` covers (default: all). |
+| `prefix` | Prefix for the variables above and for refused names (default: the project name, e.g. `BLK_SCL`). |
+| `allowReserved` | `<PREFIX>_…` or `CLOUDFLARE_…` names a folder may still set. |
+| `expand` | Expand `${…}` references in values (default `true`). |
+| `environments` | `INFISICAL_ENV` values allowed (default `["dev"]`). |
+| `validator` | A project module exporting `validateScope(folder, values)` for extra checks. |
+| `ciPassthrough` | In CI (`CI` set), run the command unchanged; workflows pass their own environment. |
+| `worktree.scopes` | Generated per-worktree keys, e.g. `{"worktree-core": ["TYPESENSE_API_KEY"]}`, stored in Infisical `/worktrees/<id>`. |
+| `worktree.legacyFiles` | Older worktree files to migrate those keys from, once. |
+
+Project scripts use the same toolkit instead of their own Infisical wrapper:
+
+```js
+import { secretsFor } from "@devsports/devkit/secrets";
+export const { fetchSecrets, childEnvironment, mergeMissingSecrets } = secretsFor();
+```
 
 ## Development
 

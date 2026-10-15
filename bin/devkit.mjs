@@ -2,6 +2,7 @@
 import { auth } from "../lib/auth.mjs";
 import { install, loadHostSettings, run, version } from "../lib/browser.mjs";
 import { loadConfig } from "../lib/config.mjs";
+import { secretsCommand } from "../lib/secrets.mjs";
 
 const usage = `devkit: shared development tooling for DevSports projects.
 
@@ -9,6 +10,8 @@ const usage = `devkit: shared development tooling for DevSports projects.
   devkit browser install [--with-deps]  Install it (once per machine) and Chrome
   devkit auth [user] [--save]           Sign the browser session in as a Clerk test user
   devkit auth --help                    More on auth
+  devkit secrets run <folders> -- <cmd> Run a command with Infisical development settings
+  devkit secrets check [--startup]      Check every folder has its required settings
 
 Settings come from devkit.config.json at the project root.`;
 
@@ -19,9 +22,11 @@ async function main([command, ...args]) {
   }
   if (command === "browser" && args[0] === "install") return install(args.slice(1));
   const config = loadConfig();
-  loadHostSettings(config);
+  // Browser host settings (proxies, sandbox flags) only apply to browser commands.
+  if (command === "browser" || command === "auth") loadHostSettings(config);
   if (command === "browser") return run(config, args[0] === "--" ? args.slice(1) : args);
   if (command === "auth") return auth(config, args);
+  if (command === "secrets") return secretsCommand(config, args);
   console.error(`Unknown command: ${command}\n\n${usage}`);
   return 1;
 }
