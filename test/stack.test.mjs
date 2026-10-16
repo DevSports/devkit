@@ -158,3 +158,19 @@ test("down stops every profile; other actions pass through; root and production 
   const prod = spawnSync(process.execPath, [bin, "stack", "up"], { cwd: p.root, env: { ...process.env, INFISICAL_ENV: "prod" }, encoding: "utf8" });
   assert.match(prod.stderr, /development environment only/);
 });
+
+test("a project's own container export and Tailscale-before-secrets order", (t) => {
+  const p = project(t, {
+    secrets: { command: [process.execPath, "-e", "require('fs').appendFileSync('calls.log','host-export\\n')"], containerCommand: [process.execPath, "-e", "require('fs').appendFileSync('calls.log','container-export\\n')"] },
+    tailscale: { command: [process.execPath, "-e", "require('fs').appendFileSync('calls.log','tailscale\\n')"], beforeSecrets: true },
+    envFile: ".env.compose/compose.env",
+    print: ["Frontend: http://localhost:${CLIENT_PORT:-1}"],
+  }, { loggedIn: false });
+  mkdirSync(path.join(p.root, ".env.compose"), { recursive: true });
+  writeFileSync(path.join(p.root, ".env.compose/compose.env"), "CLIENT_PORT=4343\n");
+  const result = p.run("up");
+  assert.equal(result.status, 0, result.stderr);
+  const order = p.calls().filter((line) => ["tailscale", "container-export", "host-export"].includes(line));
+  assert.deepEqual(order, ["tailscale", "container-export"]);
+  assert.match(result.stdout, /Frontend: http:\/\/localhost:4343/);
+});

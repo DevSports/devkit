@@ -1,6 +1,6 @@
 {
   "name": "@devsports/devkit",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "description": "Shared development tooling for DevSports projects: pinned agent-browser and Clerk test sign-in.",
   "license": "UNLICENSED",
   "type": "module",
