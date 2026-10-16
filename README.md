@@ -9,6 +9,10 @@ blk-scl, mission-control), so a fix lands once instead of in every repo.
   fixed test code. No passwords, secret keys or email.
 - **`devkit secrets`**: runs commands with development settings from
   Infisical, and gives project scripts one shared Infisical toolkit.
+- **`devkit stack`**: one Docker Compose launcher for every project's
+  development stack, with a host-wide Docker lock and memory check.
+- **`devkit watch`**: reruns a command when files change, by polling (native
+  watchers don't work on Docker Desktop's macOS file sharing).
 - **`devkit urls`** and **`@devsports/devkit/tailscale`**: the checkout's
   public Tailscale URLs, and the Tailscale Serve helpers behind each project's
   `setup:tailscale`.
@@ -21,7 +25,7 @@ anything project-specific belongs in the project's `devkit.config.json`.
 Add it to the workspace root, pinned to a release tag:
 
 ```sh
-pnpm add -Dw github:DevSports/devkit#v0.3.0
+pnpm add -Dw github:DevSports/devkit#v0.4.0
 ```
 
 Add the scripts the project's docs and agents use:
@@ -236,6 +240,72 @@ expose differs, but they share `@devsports/devkit/tailscale`: finding the CLI
 daemon socket), reading the MagicDNS name and Serve status, choosing free HTTPS
 ports, adding and removing only mappings that still point at this checkout,
 a lock, and writing the manifest atomically with mode 600.
+
+## Docker stack
+
+Each project keeps its `compose.yaml` (every service needs a `mem_limit`) and
+describes the rest in `devkit.config.json`:
+
+```json
+"stack": {
+  "files": ["compose.yaml"],
+  "secrets": { "folders": ["admin", "convex"] },
+  "devHost": true,
+  "tailscale": { "route": { "target": { "variable": "DCBC_PROXY_PORT", "default": 4288 },
+                            "localPorts": [{ "variable": "DCBC_ADMIN_PORT", "default": 4200 }] } },
+  "print": ["Admin: http://localhost:${DCBC_ADMIN_PORT:-4200}"]
+}
+```
+
+```sh
+pnpm start            # devkit stack up
+pnpm docker logs -f   # devkit stack <any compose command>
+pnpm docker down
+```
+
+`devkit stack up`:
+
+1. Refuses `INFISICAL_ENV` other than `dev` and running as root; exports
+   `<PREFIX>_UID` / `<PREFIX>_GID` for the image build.
+2. Names the Compose project: the project name, or `<name>-<worktree id>` in a
+   linked worktree when `worktreeProjects` is set.
+3. Under a lock shared by every DevSports stack on this Docker daemon, checks
+   the services' memory limits fit next to everything already running (with
+   512 MiB headroom), then builds the `setup` service's image.
+4. Exports secrets into `.env.compose/` (mode 700): the listed Infisical
+   `folders` as `<folder>.json`, or the project's own `secrets.command`. Without
+   a host Infisical login it does this inside the `auth` service instead
+   (`pnpm docker login` logs that container in).
+5. Runs `beforeUp`, then publishes the app with Tailscale Serve: either one
+   HTTPS `route` to a proxy port (reusing its saved port, never replacing
+   another route or a Funnel one), or the project's own `tailscale.command`.
+   `devHost` exports `<PREFIX>_DEV_HOST`, the machine's MagicDNS name.
+6. Runs `docker compose up` in the foreground, or for a linked worktree with
+   `worktree.detach`, starts detached, runs `worktree.afterUp`, then follows
+   `worktree.follow` logs.
+
+`down` stops every profile and removes only this checkout's Tailscale route.
+
+| Field | Meaning |
+| --- | --- |
+| `prefix` | Prefix for `_UID`, `_GID`, `_DEV_HOST` (default: the project name). |
+| `files`, `worktreeFiles`, `profileFiles` | Compose files, extra ones in a linked worktree, and per active profile. |
+| `worktreeProjects` | Give linked worktrees their own Compose project. |
+| `envFile`, `profilesFile` | A generated `--env-file`, and a file holding the saved `COMPOSE_PROFILES`. |
+| `setupService`, `authService`, `upArgs` | Defaults `setup`, `auth`, `[]` (e.g. `["--build"]`). |
+| `secrets.folders` / `secrets.command` | What to export into `.env.compose/`. |
+| `beforeUp`, `worktree.afterUp` | Project commands, e.g. `["node", "scripts/compose/prepare.mjs"]`. |
+| `tailscale.route` / `tailscale.command` | One Serve route to a proxy port, or the project's own setup (with `stopCommand`, optional `profile`, `worktreeManifest`). |
+| `print` | Lines printed before start-up; `${VAR:-default}` is filled in, and a line with a missing `${VAR}` is skipped. |
+
+## Watching files
+
+```sh
+devkit watch --path backend/packages/core/src --path backend/packages/core/package.json -- pnpm --filter core build
+```
+
+Runs the command, then again once files under the paths change and have
+settled for one poll (`--interval`, default 1000 ms).
 
 ## Development
 
