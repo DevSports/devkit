@@ -14,7 +14,7 @@ const bin = fileURLToPath(new URL("../bin/devkit.mjs", import.meta.url));
 function fixture(t, folders, secrets = {}) {
   const root = mkdtempSync(path.join(tmpdir(), "devkit-secrets-"));
   t.after(() => spawnSync("rm", ["-rf", root]));
-  writeFileSync(path.join(root, ".infisical.json"), JSON.stringify({ workspaceId: "0dbcc24f-a964-4470-8517-cbb3aac72b39", domain: "https://eu.infisical.com" }));
+  writeFileSync(path.join(root, ".infisical.json"), JSON.stringify({ workspaceId: "00000000-0000-4000-8000-000000000000", domain: "https://eu.infisical.com" }));
   writeFileSync(path.join(root, "devkit.config.json"), JSON.stringify({ name: "demo", secrets }));
   writeFileSync(path.join(root, "folders.json"), JSON.stringify(folders));
   mkdirSync(path.join(root, "bin"));
@@ -41,8 +41,8 @@ if (args[0] === "export") {
 }
 
 test("validates the secrets config", () => {
-  const config = validateConfig({ name: "blk-scl", secrets: { folders: { development: ["TYPESENSE_API_KEY"], qa: [] } } });
-  assert.equal(config.secrets.prefix, "BLK_SCL");
+  const config = validateConfig({ name: "my-shop", secrets: { folders: { development: ["TYPESENSE_API_KEY"], qa: [] } } });
+  assert.equal(config.secrets.prefix, "MY_SHOP");
   assert.deepEqual(config.secrets.startup, ["development", "qa"]);
   assert.deepEqual(config.secrets.environments, ["dev"]);
   assert.throws(() => validateConfig({ name: "x", secrets: { folders: { "Bad Folder": [] } } }), /bad secrets folder/);
@@ -68,7 +68,7 @@ test("run injects the folders, strips inherited secrets and refuses conflicts", 
   assert.equal(env.CONVEX_DEPLOYMENT, undefined);
   assert.equal(env.DEMO_SECRETS_SCOPE, "convex,web");
   assert.deepEqual(env.DEMO_INJECTED_SECRET_NAMES.split(",").sort(), ["CONVEX_URL", "SHARED", "VITE_KEY"]);
-  assert.match(f.calls(), /export --format=json --expand=true --secret-overriding=false --path=\/convex --projectId=0dbcc24f-a964-4470-8517-cbb3aac72b39 --domain=https:\/\/eu.infisical.com --env=dev --silent/);
+  assert.match(f.calls(), /export --format=json --expand=true --secret-overriding=false --path=\/convex --projectId=00000000-0000-4000-8000-000000000000 --domain=https:\/\/eu.infisical.com --env=dev --silent/);
   const conflict = f.run(["secrets", "run", "convex,other", "--", "true"]);
   assert.equal(conflict.status, 1);
   assert.match(conflict.stderr, /Conflicting secret SHARED/);

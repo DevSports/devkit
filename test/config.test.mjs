@@ -4,11 +4,11 @@ import { defaultSession, developmentUrl, validateConfig } from "../lib/config.mj
 import { parseAuthArgs, signInScript } from "../lib/auth.mjs";
 
 const auth = {
-  users: { staff: "priya+clerk_test@example.com", admin: "admin+clerk_test@example.com" },
+  users: { staff: "staff+clerk_test@example.com", admin: "admin+clerk_test@example.com" },
 };
 
 test("fills in auth defaults", () => {
-  const config = validateConfig({ name: "tsb", app: { url: "http://localhost:4287/x" }, auth });
+  const config = validateConfig({ name: "shop", app: { url: "http://localhost:4287/x" }, auth });
   assert.equal(config.app.url, "http://localhost:4287");
   assert.deepEqual(
     { ...config.auth, users: undefined },
@@ -33,13 +33,13 @@ test("only accepts development origins", () => {
 });
 
 test("names the default session after the project and checkout", () => {
-  const a = defaultSession({ name: "tsb", root: "/repos/tsb" });
-  assert.match(a, /^tsb-[0-9a-f]{10}$/);
-  assert.notEqual(a, defaultSession({ name: "tsb", root: "/repos/.worktrees/tsb-x" }));
+  const a = defaultSession({ name: "shop", root: "/repos/shop" });
+  assert.match(a, /^shop-[0-9a-f]{10}$/);
+  assert.notEqual(a, defaultSession({ name: "shop", root: "/repos/.worktrees/shop-x" }));
 });
 
 test("parses auth arguments", () => {
-  const config = { root: "/r", app: {}, ...validateConfig({ name: "tsb", auth }) };
+  const config = { root: "/r", app: {}, ...validateConfig({ name: "shop", auth }) };
   const one = parseAuthArgs(["admin", "--url", "http://localhost:1", "--save"], config);
   assert.deepEqual(one.users, ["admin"]);
   assert.equal(one.statePath("admin"), "/r/.agents/auth/admin.json");

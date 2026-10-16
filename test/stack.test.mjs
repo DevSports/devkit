@@ -14,8 +14,8 @@ const bin = fileURLToPath(new URL("../bin/devkit.mjs", import.meta.url));
 const GiB = 1024 ** 3;
 
 test("validates the stack config", () => {
-  const { stack } = validateConfig({ name: "blk-scl", stack: {} });
-  assert.equal(stack.prefix, "BLK_SCL");
+  const { stack } = validateConfig({ name: "my-shop", stack: {} });
+  assert.equal(stack.prefix, "MY_SHOP");
   assert.deepEqual(stack.files, ["compose.yaml"]);
   assert.equal(stack.setupService, "setup");
   assert.throws(() => validateConfig({ name: "x", stack: { beforeUp: "node x.mjs" } }), /command array/);
@@ -23,8 +23,8 @@ test("validates the stack config", () => {
 });
 
 test("names a worktree after its folder and path", () => {
-  assert.match(worktreeId("/repos/.worktrees/TSB Feature!"), /^tsb-feature-[0-9a-f]{8}$/);
-  assert.notEqual(worktreeId("/a/tsb"), worktreeId("/b/tsb"));
+  assert.match(worktreeId("/repos/.worktrees/Shop Feature!"), /^shop-feature-[0-9a-f]{8}$/);
+  assert.notEqual(worktreeId("/a/shop"), worktreeId("/b/shop"));
 });
 
 test("interpolates print lines and skips ones missing a value", () => {
@@ -52,7 +52,7 @@ test("plans the Tailscale route without replacing other routes", () => {
 });
 
 test("memory admission counts every other running container", () => {
-  const base = { project: "dcbc", stackCapBytes: 8 * GiB, daemonBytes: 16 * GiB, hostBytes: 24 * GiB };
+  const base = { project: "shop", stackCapBytes: 8 * GiB, daemonBytes: 16 * GiB, hostBytes: 24 * GiB };
   const ok = assessDockerCapacity({ ...base, requestedBytes: 8 * GiB, containers: [{ running: true, memoryBytes: 4 * GiB, project: "arcdev-1" }] });
   assert.equal(ok.admitted, true);
   assert.throws(
@@ -83,7 +83,7 @@ function project(t, stack, { linked = false, loggedIn = true, folders = {} } = {
   const root = mkdtempSync(path.join(tmpdir(), "devkit-stack-"));
   t.after(() => rmSync(root, { recursive: true, force: true }));
   writeFileSync(path.join(root, "devkit.config.json"), JSON.stringify({ name: "demo", secrets: { folders: Object.fromEntries(Object.keys(folders).map((f) => [f, []])) }, stack }));
-  writeFileSync(path.join(root, ".infisical.json"), JSON.stringify({ workspaceId: "0dbcc24f-a964-4470-8517-cbb3aac72b39", domain: "https://eu.infisical.com" }));
+  writeFileSync(path.join(root, ".infisical.json"), JSON.stringify({ workspaceId: "00000000-0000-4000-8000-000000000000", domain: "https://eu.infisical.com" }));
   if (linked) writeFileSync(path.join(root, ".git"), "gitdir: /elsewhere\n");
   else mkdirSync(path.join(root, ".git"));
   const fakes = path.join(root, "fakes");

@@ -1,7 +1,7 @@
 # devkit
 
-Shared development tooling for the DevSports projects (arc, dcbc, tsb,
-blk-scl, mission-control), so a fix lands once instead of in every repo.
+Shared development tooling for the DevSports projects, so a fix lands once
+instead of in every repo.
 
 - **`devkit browser`**: [agent-browser](https://agent-browser.dev), pinned by
   version and SHA-256 digest, running headless Chrome. One copy per machine.
@@ -43,14 +43,14 @@ And a `devkit.config.json` at the root:
 
 ```json
 {
-  "name": "tsb",
+  "name": "shop",
   "app": { "url": "http://localhost:4287" },
   "auth": {
     "signInPath": "/login",
     "landingPath": "/home",
     "defaultUser": "staff",
     "users": {
-      "staff": "priya.shah+clerk_test@example.com",
+      "staff": "staff+clerk_test@example.com",
       "org-admin": "org-admin+clerk_test@example.com"
     }
   }
@@ -128,12 +128,12 @@ the code `424242`, and send no email. Each project lists one such user per role.
 page's own Clerk, so it works with any sign-in UI:
 
 ```sh
-export AGENT_BROWSER_SESSION=tsb-my-task
+export AGENT_BROWSER_SESSION=shop-my-task
 pnpm auth --url "$APP_URL"                 # the default user
 pnpm auth org-admin --url "$APP_URL"       # switch user in the same session
 pnpm auth --list                           # users and addresses
 pnpm auth --all --save --url "$APP_URL"    # save every user for test suites
-pnpm auth coach --temp --save --url "$APP_URL"  # save one, without touching your session
+pnpm auth staff --temp --save --url "$APP_URL"  # save one, without touching your session
 pnpm browser --state .agents/auth/org-admin.json open "$APP_URL"
 ```
 
@@ -153,7 +153,7 @@ roles and data stay the same:
 ```sh
 curl -sS https://api.clerk.com/v1/email_addresses \
   -H "Authorization: Bearer $CLERK_SECRET_KEY" -H "Content-Type: application/json" \
-  -d '{"user_id":"user_…","email_address":"coach+clerk_test@example.com","verified":true,"primary":false}'
+  -d '{"user_id":"user_…","email_address":"staff+clerk_test@example.com","verified":true,"primary":false}'
 ```
 
 The instance needs **Email verification code** turned on as a sign-in
@@ -198,7 +198,7 @@ names (`PATH`, `NODE_OPTIONS`, `INFISICAL_*`, `<PREFIX>_*` …) are refused, and
 | --- | --- |
 | `folders` | Folder → required keys. Only these folders can be used. |
 | `startup` | Folders `check --startup` covers (default: all). |
-| `prefix` | Prefix for the variables above and for refused names (default: the project name, e.g. `BLK_SCL`). |
+| `prefix` | Prefix for the variables above and for refused names (default: the project name, e.g. `MY_SHOP` for `my-shop`). |
 | `allowReserved` | `<PREFIX>_…` or `CLOUDFLARE_…` names a folder may still set. |
 | `expand` | Expand `${…}` references in values (default `true`). |
 | `environments` | `INFISICAL_ENV` values allowed (default `["dev"]`). |
@@ -229,7 +229,7 @@ requests each one, `--json` prints a list, and `--all` adds optional services:
   ],
   "worktreeManifest": ".env.worktree",
   "worktreeServices": [{ "name": "client", "variable": "WORKTREE_PUBLIC_URL" }],
-  "manifestEnv": "ARC_TAILSCALE_ENV_FILE",
+  "manifestEnv": "SHOP_TAILSCALE_ENV_FILE",
   "missingHint": "Run `pnpm dev up`."
 }
 ```
@@ -251,9 +251,9 @@ describes the rest in `devkit.config.json`:
   "files": ["compose.yaml"],
   "secrets": { "folders": ["admin", "convex"] },
   "devHost": true,
-  "tailscale": { "route": { "target": { "variable": "DCBC_PROXY_PORT", "default": 4288 },
-                            "localPorts": [{ "variable": "DCBC_ADMIN_PORT", "default": 4200 }] } },
-  "print": ["Admin: http://localhost:${DCBC_ADMIN_PORT:-4200}"]
+  "tailscale": { "route": { "target": { "variable": "SHOP_PROXY_PORT", "default": 4288 },
+                            "localPorts": [{ "variable": "SHOP_APP_PORT", "default": 4200 }] } },
+  "print": ["App: http://localhost:${SHOP_APP_PORT:-4200}"]
 }
 ```
 
