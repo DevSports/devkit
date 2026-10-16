@@ -174,3 +174,10 @@ test("a project's own container export and Tailscale-before-secrets order", (t) 
   assert.deepEqual(order, ["tailscale", "container-export"]);
   assert.match(result.stdout, /Frontend: http:\/\/localhost:4343/);
 });
+
+test("hooks see the action, and the manifest loads before the memory check", (t) => {
+  const p = project(t, { beforeUp: [process.execPath, "-e", "require('fs').appendFileSync('calls.log','hook '+process.env.DEVKIT_STACK_ACTION+'\\n')"], tailscale: { manifestEnv: true } });
+  writeFileSync(path.join(p.root, ".env.tailscale"), "CLIENT_PORT=4287\n");
+  assert.equal(p.run("secrets").status, 0);
+  assert.ok(p.calls().includes("hook secrets"));
+});

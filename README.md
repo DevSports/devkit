@@ -25,7 +25,7 @@ anything project-specific belongs in the project's `devkit.config.json`.
 Add it to the workspace root, pinned to a release tag:
 
 ```sh
-pnpm add -Dw github:DevSports/devkit#v0.4.1
+pnpm add -Dw github:DevSports/devkit#v0.4.2
 ```
 
 Add the scripts the project's docs and agents use:
@@ -295,7 +295,7 @@ pnpm docker down
 | `setupService`, `authService`, `upArgs` | Defaults `setup`, `auth`, `[]` (e.g. `["--build"]`). |
 | `secrets.folders` / `secrets.command` | What to export into `.env.compose/`. |
 | `secrets.containerCommand` | The project's own way to run its export in the `auth` container (default: `secrets.command` with `/secrets`). |
-| `beforeUp`, `worktree.afterUp` | Project commands, e.g. `["node", "scripts/compose/prepare.mjs"]`. |
+| `beforeUp`, `worktree.afterUp` | Project commands, e.g. `["node", "scripts/compose/prepare.mjs"]`; `DEVKIT_STACK_ACTION` says whether it's `up` or `secrets`. |
 | `tailscale.route` / `tailscale.command` | One Serve route to a proxy port, or the project's own setup (with `stopCommand`, optional `profile`, `worktreeManifest`). |
 | `tailscale.beforeSecrets` | Set up Tailscale before exporting secrets, for exports that read its URLs. |
 | `tailscale.manifestEnv` | Pass the Tailscale manifest's values to Compose, for compose files that read them. |
