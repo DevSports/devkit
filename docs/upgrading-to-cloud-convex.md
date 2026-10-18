@@ -50,7 +50,7 @@ pnpm add -Dw github:DevSports/devkit#v0.5.0
 ```
 
 ```json
-"convex": { "team": "dev-sports", "project": "arc", "region": "aws-eu-west-1" }
+"convex": { "team": "<team-slug>", "project": "<project-slug>", "region": "aws-eu-west-1" }
 ```
 
 Find the slugs with `GET https://api.convex.dev/v1/token_details` and

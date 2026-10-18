@@ -312,7 +312,7 @@ Convex in the cloud saves each checkout the 2.5 GiB a local backend needs.
 Add the project to `devkit.config.json`:
 
 ```json
-"convex": { "team": "dev-sports", "project": "shop", "region": "aws-eu-west-1" }
+"convex": { "team": "acme", "project": "shop", "region": "aws-eu-west-1" }
 ```
 
 | Field | Meaning |
