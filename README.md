@@ -91,7 +91,15 @@ agent-browser's own cache. Commands run with:
   visible scrollbars), unless the project commits its own `agent-browser.json`;
 - `AGENT_BROWSER_SESSION` defaulting to `<name>-<checkout hash>`. Agents should
   always set their own unique session;
-- screenshots defaulting to the project's ignored `output/agent-browser/`.
+- screenshots defaulting to the project's ignored `output/agent-browser/`;
+- `AGENT_BROWSER_IDLE_TIMEOUT_MS` defaulting to 10 minutes, so a session
+  nobody closed shuts its Chrome down instead of holding it for an hour. Set
+  it in the host settings below to change it (`0` disables the timeout).
+
+Close a session when you're done with it: `pnpm browser close`. For a saved
+sign-in that only a test suite needs, use `pnpm auth <user> --temp --save`
+(or `--all --save`), which closes its throwaway session itself; a plain
+`pnpm auth <user>` leaves your session open and signed in on purpose.
 
 ### Host settings
 
