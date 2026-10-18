@@ -2,6 +2,7 @@
 import { auth } from "../lib/auth.mjs";
 import { install, loadHostSettings, run, version } from "../lib/browser.mjs";
 import { loadConfig } from "../lib/config.mjs";
+import { convexCommand } from "../lib/convex.mjs";
 import { secretsCommand } from "../lib/secrets.mjs";
 import { stackCommand } from "../lib/stack.mjs";
 import { urlsCommand } from "../lib/urls.mjs";
@@ -18,6 +19,7 @@ const usage = `devkit: shared development tooling for DevSports projects.
   devkit urls [--check] [--json] [--all] Print (and check) this checkout's Tailscale URLs
   devkit stack <up|down|logs|...>       Run this checkout's Docker Compose stack
   devkit watch --path <p> -- <cmd>      Rerun a command when files change (polling)
+  devkit convex <ensure|list|delete>    This checkout's Convex cloud dev deployment
 
 Settings come from devkit.config.json at the project root.`;
 
@@ -36,6 +38,7 @@ async function main([command, ...args]) {
   if (command === "secrets") return secretsCommand(config, args);
   if (command === "urls") return urlsCommand(config, args);
   if (command === "stack") return stackCommand(config, args);
+  if (command === "convex") return convexCommand(config, args);
   console.error(`Unknown command: ${command}\n\n${usage}`);
   return 1;
 }

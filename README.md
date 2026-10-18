@@ -14,8 +14,11 @@ instead of in every repo.
 - **`devkit watch`**: reruns a command when files change, by polling (native
   watchers don't work on Docker Desktop's macOS file sharing).
 - **`devkit urls`** and **`@devsports/devkit/tailscale`**: the checkout's
-  public Tailscale URLs, and the Tailscale Serve helpers behind each project's
-  `setup:tailscale`.
+  public Tailscale URLs, and the Tailscale Serve and Funnel helpers behind each
+  project's `setup:tailscale`.
+- **`devkit convex`** and **`@devsports/devkit/convex`**: one Convex cloud dev
+  deployment per checkout, created, renewed and deleted with a team token,
+  so no checkout runs a local Convex backend.
 
 This repository is public. Never commit secrets, hostnames or user data;
 anything project-specific belongs in the project's `devkit.config.json`.
@@ -300,6 +303,79 @@ pnpm docker down
 | `tailscale.beforeSecrets` | Set up Tailscale before exporting secrets, for exports that read its URLs. |
 | `tailscale.manifestEnv` | Pass the Tailscale manifest's values to Compose, for compose files that read them. |
 | `print` | Lines printed before start-up; `${VAR:-default}` is filled in from the environment, `envFile` and the Tailscale manifest, and a line with a missing `${VAR}` is skipped. |
+
+## Convex cloud dev deployments
+
+Each checkout (the primary one and every linked worktree) gets its own Convex
+cloud **dev** deployment, which is what Convex recommends for worktrees. Running
+Convex in the cloud saves each checkout the 2.5 GiB a local backend needs.
+Add the project to `devkit.config.json`:
+
+```json
+"convex": { "team": "acme", "project": "shop", "region": "aws-eu-west-1" }
+```
+
+| Field | Meaning |
+| --- | --- |
+| `team`, `project` | Convex team and project slugs. |
+| `region` | `aws-eu-west-1` (default), `aws-us-east-1`, `aws-ca-central-1` or `aws-ap-southeast-2`. |
+| `worktreeDays` | Days a worktree deployment lives after its last `ensure` (1–14, default 14, the Professional plan's limit). |
+| `token` | Where the team access token lives: `{ "folder": "convex", "key": "CONVEX_TEAM_TOKEN" }` by default. `CONVEX_TEAM_TOKEN` in the environment wins. |
+
+```sh
+devkit convex ensure --kind worktree --id 1a2b3c4d5e6f --key-file local-data/convex_deploy_key
+devkit convex list                         # your devkit-managed deployments and expiry
+devkit convex delete dev/<you>/worktree-1a2b3c4d5e6f
+```
+
+`ensure` creates `dev/<you>/<kind>-<id>`, or renews it if it exists:
+
+- `primary` deployments never expire;
+- `worktree` deployments expire `worktreeDays` after the last `ensure`, so a
+  forgotten worktree's deployment deletes itself. Run `ensure` from the
+  project's start-up command so active worktrees keep theirs.
+
+`--key-file` keeps a deploy key scoped to that one deployment (mode 600). Put
+it in `CONVEX_DEPLOY_KEY` for `convex dev`, `convex run` and the rest, or in the
+Convex folder's `.env.local`, which is what Convex's own worktree recipe does.
+`--json` prints the name, URLs (`url`, `siteUrl`), dashboard link, expiry and
+whether it was just `created`, so the project knows to seed it.
+
+Project scripts use the library directly:
+
+```js
+import { ensureDeployment, ensureDeployKeyFile, managementClient, resolveToken } from "@devsports/devkit/convex";
+```
+
+**The team token can manage every deployment in the team, production
+included.** devkit only creates, renews or deletes non-default `dev`
+deployments under `dev/<you>/`, and refuses anything else. Keep the token in
+Infisical; never copy it into a deployment's environment variables (a script
+that syncs a whole Infisical folder into Convex must skip it). One token works
+for every project in the team. Create it in the Convex dashboard under Team
+Settings → Access Tokens.
+
+### Reaching local services from the cloud
+
+A cloud deployment can't reach tailnet-only Serve URLs. Publish what its
+functions call (search, a render worker) with **Tailscale Funnel**:
+
+```js
+import { addFunnelPath, findTailscaleCli, removeFunnelPath } from "@devsports/devkit/tailscale";
+const url = addFunnelPath(findTailscaleCli(), { port: 8443, mount: "/shop-1a2b3c/search", target: "http://127.0.0.1:27861" });
+```
+
+Funnel only serves ports 443, 8443 and 10000, so checkouts share a port with
+one path each; Tailscale strips the path before proxying, and unknown paths
+return 404. Use `mount: "/"` when the caller needs a bare origin; that takes the
+whole port for one checkout. `addFunnelPath` refuses a port used by tailnet-only
+Serve and a path that points elsewhere; `removeFunnelPath` only removes a path
+still pointing at your target. Funnel URLs are public: only publish services
+that check a secret on every request. The tailnet policy must grant the node
+the `funnel` attribute.
+
+[Upgrading a project to cloud Convex](docs/upgrading-to-cloud-convex.md) walks
+through the change ARC made.
 
 ## Watching files
 

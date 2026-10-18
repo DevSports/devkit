@@ -1,6 +1,6 @@
 {
   "name": "@devsports/devkit",
-  "version": "0.4.2",
+  "version": "0.5.0",
   "description": "Shared development tooling for DevSports projects: pinned agent-browser and Clerk test sign-in.",
   "license": "UNLICENSED",
   "type": "module",
@@ -26,6 +26,7 @@
     "./package.json": "./package.json",
     "./tailscale": "./lib/tailscale.mjs",
     "./docker": "./lib/docker.mjs",
-    "./stack": "./lib/stack.mjs"
+    "./stack": "./lib/stack.mjs",
+    "./convex": "./lib/convex.mjs"
   }
 }
