@@ -312,6 +312,25 @@ pnpm docker down
 | `tailscale.manifestEnv` | Pass the Tailscale manifest's values to Compose, for compose files that read them. |
 | `print` | Lines printed before start-up; `${VAR:-default}` is filled in from the environment, `envFile` and the Tailscale manifest, and a line with a missing `${VAR}` is skipped. |
 
+### Local ports
+
+Give every checkout, the primary one included, its own random loopback ports,
+picked once and saved, so two checkouts never clash and each keeps its local
+URLs across restarts:
+
+```js
+import { allocateLocalPorts, assertPortsAvailable, publishedPorts } from "@devsports/devkit/ports";
+manifest.ports ??= await allocateLocalPorts(["client", "search"]); // then save the manifest
+await assertPortsAvailable(manifest.ports, { owned: publishedPorts(composeProject) });
+```
+
+Ports come from 20000–32767, below the range the OS uses for outgoing
+connections, so a stopped stack's ports aren't taken in the meantime.
+`assertPortsAvailable` names the port and its holder's role instead of
+Docker's "port is already allocated"; ports the stack's own running
+containers publish count as free. Services nobody opens by hand can publish
+`127.0.0.1::<port>` and let Docker pick.
+
 ## Convex cloud dev deployments
 
 Each checkout (the primary one and every linked worktree) gets its own Convex
@@ -353,6 +372,17 @@ Project scripts use the library directly:
 
 ```js
 import { ensureDeployment, ensureDeployKeyFile, managementClient, resolveToken } from "@devsports/devkit/convex";
+```
+
+To read or change the deployment's environment variables, use its deploy key
+rather than running `convex env set` once per variable. Each CLI run costs a
+few seconds; `setEnvironment` sends every change in one request:
+
+```js
+import { deploymentClient } from "@devsports/devkit/convex";
+const deployment = deploymentClient({ url, deployKey }); // a dev deploy key only
+await deployment.setEnvironment({ SEARCH_URL: url, OLD_SETTING: null }); // null removes
+const state = await deployment.getEnvironment("SEED_STATE"); // null when unset
 ```
 
 **The team token can manage every deployment in the team, production

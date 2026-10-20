@@ -8,6 +8,7 @@ import {
   assertOwned,
   convexCommand,
   deleteDeployment,
+  deploymentClient,
   deploymentReference,
   ensureDeployKeyFile,
   ensureDeployment,
@@ -178,4 +179,28 @@ test("Funnel paths: added once, refused when another target or Serve owns them",
   status({ "/": { Proxy: "http://127.0.0.1:9" } }, false);
   assert.throws(() => addFunnelPath(cli, { port: 8443, mount: "/x", target: "http://127.0.0.1:4000" }), /tailnet-only Serve/);
   assert.throws(() => addFunnelPath(cli, { port: 4443, mount: "/x", target: "http://127.0.0.1:4000" }), /only serves ports/);
+});
+
+test("deployment environment: one request for many variables, dev keys only", async () => {
+  const requests = [];
+  const fetch = async (url, init) => {
+    requests.push({ url, auth: init.headers.Authorization, body: JSON.parse(init.body) });
+    if (url.endsWith("/api/query")) return new Response(JSON.stringify({ status: "success", value: requests.length === 1 ? { name: "A", value: "1" } : null }));
+    return new Response("");
+  };
+  const deployment = deploymentClient({ url: "https://brave-otter-1.convex.cloud", deployKey: "dev:brave-otter-1|secret" }, { fetch });
+
+  assert.equal(await deployment.getEnvironment("A"), "1");
+  assert.equal(await deployment.getEnvironment("B"), null);
+  await deployment.setEnvironment({ A: "x=y\nz", B: 2, C: null });
+  await deployment.setEnvironment({});
+  assert.equal(requests.length, 3, "an empty change set sends nothing");
+  assert.deepEqual(requests[0].body, { path: "_system/cli/queryEnvironmentVariables:get", args: { name: "A" }, format: "json" });
+  assert.equal(requests[2].url, "https://brave-otter-1.convex.cloud/api/update_environment_variables");
+  assert.deepEqual(requests[2].body, { changes: [{ name: "A", value: "x=y\nz" }, { name: "B", value: "2" }, { name: "C" }] });
+  assert.equal(requests[2].auth, "Convex dev:brave-otter-1|secret");
+
+  assert.throws(() => deploymentClient({ url: "https://x.convex.cloud", deployKey: "prod:x|secret" }), /dev deploy key/);
+  const failing = deploymentClient({ url: "https://x.convex.cloud", deployKey: "dev:x|secret" }, { fetch: async () => new Response("bad key", { status: 401 }) });
+  await assert.rejects(failing.setEnvironment({ A: "1" }), (error) => /\(401\)/.test(error.message) && !error.message.includes("secret"));
 });
