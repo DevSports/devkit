@@ -10,7 +10,8 @@ instead of in every repo.
 - **`devkit secrets`**: runs commands with development settings from
   Infisical, and gives project scripts one shared Infisical toolkit.
 - **`devkit stack`**: one Docker Compose launcher for every project's
-  development stack, with a host-wide Docker lock and memory check.
+  development stack, with a host-wide Docker lock and memory check, and
+  `devkit stack wait` to block until a dev server has rebuilt.
 - **`devkit watch`**: reruns a command when files change, by polling (native
   watchers don't work on Docker Desktop's macOS file sharing).
 - **`devkit urls`** and **`@devsports/devkit/tailscale`**: the checkout's
@@ -310,7 +311,41 @@ pnpm docker down
 | `tailscale.route` / `tailscale.command` | One Serve route to a proxy port, or the project's own setup (with `stopCommand`, optional `profile`, `worktreeManifest`). |
 | `tailscale.beforeSecrets` | Set up Tailscale before exporting secrets, for exports that read its URLs. |
 | `tailscale.manifestEnv` | Pass the Tailscale manifest's values to Compose, for compose files that read them. |
+| `wait` | Services `devkit stack wait` knows, each a preset (`angular`, `convex`) or `{ start, done, failed, error }` patterns. |
 | `print` | Lines printed before start-up; `${VAR:-default}` is filled in from the environment, `envFile` and the Tailscale manifest, and a line with a missing `${VAR}` is skipped. |
+
+### Waiting for a build
+
+After saving a file, wait for the dev server to finish rebuilding instead of
+polling its logs in a sleep loop:
+
+```json
+"stack": { "wait": { "app": "angular", "convex": "convex" } }
+```
+
+```sh
+devkit stack wait app            # blocks until the build settles, prints one line
+devkit stack wait                # every service in "stack.wait", in turn
+devkit stack wait app --timeout 300 --settle 5
+```
+
+It reads the service's timestamped logs once a second. When the latest build
+has finished and nothing new has started for `--settle` seconds (default 3, for
+a save the watcher hasn't noticed yet), it prints the result line, plus the
+`[ERROR]` lines when it failed. It exits 0 when the build completed, 1 when it
+failed, and 2 after `--timeout` seconds (default 600) still building. When
+nothing rebuilt since the call, it says so and reports the last build.
+
+The presets are `angular` (`ng serve`) and `convex` (`convex dev`). Other
+servers give their own `{ "start", "done", "failed", "error" }` regular
+expressions. Projects with their own launcher use the library with their own
+log reader:
+
+```js
+import { parseTimestampedLogs, presets, reportBuild, waitForBuild } from "@devsports/devkit/build-wait";
+const readLogs = () => parseTimestampedLogs(composeLogs("client")); // `logs --timestamps`, stderr included
+process.exitCode = reportBuild("client", await waitForBuild({ readLogs, patterns: presets.angular }));
+```
 
 ### Local ports
 

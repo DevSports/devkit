@@ -17,7 +17,7 @@ const usage = `devkit: shared development tooling for DevSports projects.
   devkit secrets run <folders> -- <cmd> Run a command with Infisical development settings
   devkit secrets check [--startup]      Check every folder has its required settings
   devkit urls [--check] [--json] [--all] Print (and check) this checkout's Tailscale URLs
-  devkit stack <up|down|logs|...>       Run this checkout's Docker Compose stack
+  devkit stack <up|down|wait|logs|...>  Run this checkout's Docker Compose stack
   devkit watch --path <p> -- <cmd>      Rerun a command when files change (polling)
   devkit convex <ensure|list|delete>    This checkout's Convex cloud dev deployment
 
