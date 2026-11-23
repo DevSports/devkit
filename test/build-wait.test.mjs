@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { validateConfig } from "../lib/config.mjs";
-import { buildState, parseTimestampedLogs, parseWaitArgs, presets, reportBuild, resolvePatterns, waitForBuild } from "../lib/build-wait.mjs";
+import { buildState, parseTimestampedLogs, parseWaitArgs, presets, reportBuild, reportCheck, resolvePatterns, resolveWait, runCheck, waitForBuild } from "../lib/build-wait.mjs";
 
 const angularLogs = `2026-10-24T15:18:38.358287938Z Application bundle generation complete. [44.225 seconds] - 2026-10-24T15:18:38.341Z
 2026-10-24T15:18:38.365056836Z Page reload sent to client(s).
@@ -91,4 +91,42 @@ test("parses wait arguments and stack.wait config", () => {
   assert.ok(stack.wait.api.done.test("Compiled in 2s"));
   assert.throws(() => validateConfig({ name: "shop", stack: { wait: { app: "vite" } } }), /unknown build preset/);
   assert.throws(() => resolvePatterns({ start: "a", done: "b" }), /"failed"/);
+});
+
+test("stack.wait takes a check for servers that don't log builds", () => {
+  const { stack } = validateConfig({ name: "shop", stack: { wait: { web: { check: ["pnpm", "exec", "tsc", "--noEmit"] }, lint: { check: ["pnpm", "lint"], host: true, error: "problem" } } } });
+  assert.deepEqual(stack.wait.web.check, ["pnpm", "exec", "tsc", "--noEmit"]);
+  assert.equal(stack.wait.web.host, false);
+  assert.ok(stack.wait.web.error.test("src/a.ts(1,2): error TS2322: Type 'x' is not assignable."));
+  assert.equal(stack.wait.lint.host, true);
+  assert.ok(stack.wait.lint.error.test("1 problem"));
+  assert.throws(() => resolveWait({ check: [] }), /command array/);
+  assert.throws(() => resolveWait({ check: ["tsc"], host: "yes" }), /"host"/);
+  assert.throws(() => validateConfig({ name: "shop", stack: { wait: { app: "vite" } } }), /such as Vite/);
+});
+
+test("runs a check and reports its errors", async () => {
+  let clock = 0;
+  const output = "src/a.ts(3,1): error TS2304: Cannot find name 'x'.\nsrc/b.ts(9,4): error TS2322: Type 'y' is wrong.\n";
+  const failed = await runCheck({ run: async () => ((clock += 14_000), { status: 2, output }), now: () => clock });
+  assert.equal(failed.state, "failed");
+  assert.equal(failed.seconds, 14);
+  assert.equal(failed.errors.length, 2);
+  const passed = await runCheck({ run: async ({ timeoutMs }) => ({ status: timeoutMs === 5_000 ? 0 : 1 }), timeoutMs: 5_000 });
+  assert.equal(passed.state, "complete");
+  const stuck = await runCheck({ run: async () => ({ status: null, timedOut: true }) });
+  assert.equal(stuck.state, "timeout");
+
+  const out = [];
+  const sink = { log: (line) => out.push(line), error: (line) => out.push(line) };
+  assert.equal(reportCheck("web", failed, sink), 1);
+  assert.deepEqual(out, ["web: check failed with 2 error(s) (14s).", "  src/a.ts(3,1): error TS2304: Cannot find name 'x'.", "  src/b.ts(9,4): error TS2322: Type 'y' is wrong."]);
+  assert.equal(reportCheck("web", passed, sink), 0);
+  assert.equal(out.at(-1), "web: check passed (0s).");
+  assert.equal(reportCheck("web", stuck, sink), 2);
+  // With no error lines, the end of the output is shown instead.
+  const plain = await runCheck({ run: async () => ({ status: 1, output: "Something broke\nexit 1" }) });
+  out.length = 0;
+  reportCheck("web", plain, sink);
+  assert.deepEqual(out, ["web: check failed (0s).", "  Something broke", "  exit 1"]);
 });

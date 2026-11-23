@@ -311,40 +311,61 @@ pnpm docker down
 | `tailscale.route` / `tailscale.command` | One Serve route to a proxy port, or the project's own setup (with `stopCommand`, optional `profile`, `worktreeManifest`). |
 | `tailscale.beforeSecrets` | Set up Tailscale before exporting secrets, for exports that read its URLs. |
 | `tailscale.manifestEnv` | Pass the Tailscale manifest's values to Compose, for compose files that read them. |
-| `wait` | Services `devkit stack wait` knows, each a preset (`angular`, `convex`) or `{ start, done, failed, error }` patterns. |
+| `wait` | Services `devkit stack wait` knows: a log preset (`angular`, `convex`), `{ start, done, failed, error }` log patterns, or `{ check, host, error }` to run a check command (for Vite). |
 | `print` | Lines printed before start-up; `${VAR:-default}` is filled in from the environment, `envFile` and the Tailscale manifest, and a line with a missing `${VAR}` is skipped. |
 
 ### Waiting for a build
 
-After saving a file, wait for the dev server to finish rebuilding instead of
-polling its logs in a sleep loop:
+After saving a file, wait for the dev server's result instead of polling its
+logs in a sleep loop. It works for Angular and React (Vite) apps, and each
+service in `stack.wait` says how:
 
 ```json
-"stack": { "wait": { "app": "angular", "convex": "convex" } }
+"stack": {
+  "wait": {
+    "app": "angular",
+    "web": { "check": ["pnpm", "exec", "tsc", "--noEmit"] },
+    "convex": "convex"
+  }
+}
 ```
 
 ```sh
-devkit stack wait app            # blocks until the build settles, prints one line
+devkit stack wait app            # blocks until there's a result, prints one line
 devkit stack wait                # every service in "stack.wait", in turn
 devkit stack wait app --timeout 300 --settle 5
 ```
 
-It reads the service's timestamped logs once a second. When the latest build
-has finished and nothing new has started for `--settle` seconds (default 3, for
-a save the watcher hasn't noticed yet), it prints the result line, plus the
-`[ERROR]` lines when it failed. It exits 0 when the build completed, 1 when it
-failed, and 2 after `--timeout` seconds (default 600) still building. When
-nothing rebuilt since the call, it says so and reports the last build.
+**Servers that log their builds** (`ng serve`, `convex dev`) use a log preset
+or their own patterns. `wait` reads the service's timestamped logs once a
+second. When the latest build has finished and nothing new has started for
+`--settle` seconds (default 3, for a save the watcher hasn't noticed yet), it
+prints the result line, plus the `[ERROR]` lines when it failed. When nothing
+rebuilt since the call, it says so and reports the last build. The presets
+are `angular` (`ng serve`) and `convex` (`convex dev`); other servers give
+their own `{ "start", "done", "failed", "error" }` regular expressions.
 
-The presets are `angular` (`ng serve`) and `convex` (`convex dev`). Other
-servers give their own `{ "start", "done", "failed", "error" }` regular
-expressions. Projects with their own launcher use the library with their own
-log reader:
+**Servers that don't** (Vite, which serves each file as it's requested and
+never type-checks) use `{ "check": [command...] }`. `wait` runs the command in
+the service's container (`docker compose exec`), or in the checkout on the
+host with `"host": true`, and prints whether it passed, plus the lines matching
+`error` when it failed (by default TypeScript `error TS…`, ESLint and
+`[ERROR]` lines; otherwise the end of the output). A type check is the usual
+choice for a React app: it catches what Vite's reload doesn't.
+
+Either way it exits 0 when it passed, 1 when it failed, and 2 after
+`--timeout` seconds (default 600) without a result.
+
+Projects with their own launcher use the library with their own log reader
+or runner:
 
 ```js
-import { parseTimestampedLogs, presets, reportBuild, waitForBuild } from "@devsports/devkit/build-wait";
+import { parseTimestampedLogs, presets, reportBuild, reportCheck, runCheck, waitForBuild } from "@devsports/devkit/build-wait";
+// Angular: read the logs.
 const readLogs = () => parseTimestampedLogs(composeLogs("client")); // `logs --timestamps`, stderr included
 process.exitCode = reportBuild("client", await waitForBuild({ readLogs, patterns: presets.angular }));
+// Vite: run a check; `run` resolves { status, output, timedOut }.
+process.exitCode = reportCheck("web", await runCheck({ run: ({ timeoutMs }) => typecheck(timeoutMs) }));
 ```
 
 ### Local ports
